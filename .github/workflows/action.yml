@@ -12,6 +12,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Setup
+        run: |
+          sudo apt install libasound2-dev
+
       - name: Build
         run: |
           RUSTFLAGS=--cfg=web_sys_unstable_apis cargo install --path .
