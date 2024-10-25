@@ -23,10 +23,10 @@ jobs:
           RUSTFLAGS=--cfg=web_sys_unstable_apis trunk build
 
       - name: Save build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-pages-artifact@v2
         with:
           path: dist
-          name: pacman
+          name: github-pages
 
   # Deploy job
   deploy:
@@ -45,6 +45,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 #or specific "vX.X.X" version tag for this action
-        with:
-          artifact_name: pacman
+        uses: actions/deploy-pages@v4 #or specific "vX.X.X" version tag for this 
