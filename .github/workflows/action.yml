@@ -14,7 +14,7 @@ jobs:
 
       - name: Setup
         run: |
-          sudo apt install libasound2-dev
+          sudo apt install libasound2-dev libudev-dev
 
       - name: Build
         run: |
