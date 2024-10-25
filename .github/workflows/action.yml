@@ -14,6 +14,7 @@ jobs:
 
       - name: Build
         run: |
+          RUSTFLAGS=--cfg=web_sys_unstable_apis cargo install --path .
           RUSTFLAGS=--cfg=web_sys_unstable_apis trunk build
 
       - name: Save build artifacts
