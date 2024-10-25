@@ -1,0 +1,24 @@
+[package]
+name = "mystuff"
+rust-version = "1.80"
+edition = "2021"
+
+[dependencies]
+egui_ratatui = "0.0.23"
+ratatui = { version = ">=0.28", default-features = false }
+egui = { version = "0.28", default-features = false }
+bevy = "0.14.1"
+rand = "0.8.5"
+bevy_egui = "0.29.0"
+#disable defaults features for rat frame if you do not want to import eframe
+web-time = { version = "1" }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"
+
+[build]
+rustflags = ["--cfg=web_sys_unstable_apis"]
+
+[features]
+serde = ["dep:serde"]
