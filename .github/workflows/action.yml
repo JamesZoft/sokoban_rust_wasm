@@ -30,6 +30,8 @@ jobs:
 
   # Deploy job
   deploy:
+    environment:
+      name: github-pages
     # Add a dependency to the build job
     needs: build
 
