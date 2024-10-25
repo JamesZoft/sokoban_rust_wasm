@@ -23,7 +23,7 @@ jobs:
           RUSTFLAGS=--cfg=web_sys_unstable_apis trunk build
 
       - name: Save build artifacts
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: dist
           name: pacman
