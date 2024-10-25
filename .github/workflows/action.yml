@@ -23,6 +23,7 @@ jobs:
           RUSTFLAGS=--cfg=web_sys_unstable_apis trunk build
 
       - name: Save build artifacts
+        id: deployment
         uses: actions/upload-pages-artifact@v2
         with:
           path: dist
@@ -32,6 +33,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     # Add a dependency to the build job
     needs: build
 
