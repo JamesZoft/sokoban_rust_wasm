@@ -37,6 +37,13 @@ enum Command {
     Reset,
 }
 
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+enum AppState {
+    Playing,
+    Restarting,
+    GameOver,
+}
+
 #[derive(Resource, Debug, Hash, Clone, PartialEq, Eq)]
 struct GameState {
     grid: Vec<Vec<char>>,
@@ -46,7 +53,6 @@ struct GameState {
     ghost_1_pos: (i32, i32),
     ghost_1_cur_dir: Option<MoveDirection>,
     num_moves_ghost_1_in_dir: i32,
-    game_over: bool,
 }
 
 fn read_input(key: &str) -> Option<Command> {
@@ -107,9 +113,9 @@ fn opposite_direction(dir: &MoveDirection) -> &MoveDirection {
     }
 }
 
-fn ghost_move(game_state: &mut GameState) {
+fn ghost_move(game_state: &mut GameState) -> AppState {
     if game_state.ghost_1_cur_dir.is_none() {
-        return;
+        return AppState::Playing;
     }
 
     let current_ghost_position = game_state.ghost_1_pos;
@@ -125,8 +131,7 @@ fn ghost_move(game_state: &mut GameState) {
         get_grid_cell_contents(&game_state.grid, next_ghost_position);
 
     if next_ghost_position_contents == 'K' {
-        game_state.game_over = true;
-        return;
+        return AppState::GameOver;
     }
 
     let mut changed_direction = false;
@@ -135,7 +140,10 @@ fn ghost_move(game_state: &mut GameState) {
         get_potential_moves(&current_ghost_position, &game_state);
 
     if ['#', '|', '-', '_'].contains(&next_ghost_position_contents) {
-        let mut next_move = potential_moves.choose(&mut thread_rng()).unwrap();
+        let mut next_move = match potential_moves.choose(&mut thread_rng()) {
+            Some(move_info) => move_info,
+            None => panic!("No move found somehow!"),
+        };
         if potential_moves.len() > 2 {
             potential_moves = potential_moves
                 .clone()
@@ -144,29 +152,27 @@ fn ghost_move(game_state: &mut GameState) {
                     &next_move.0 .0.clone() != opposite_direction(&move_info.0 .0.clone())
                 })
                 .collect::<Vec<((MoveDirection, (i32, i32)), char)>>();
+            next_move = match potential_moves.choose(&mut thread_rng()) {
+                Some(move_info) => move_info,
+                None => panic!("No additional move found somehow!"),
+            };
         }
-        next_move = potential_moves.choose(&mut thread_rng()).unwrap();
 
         next_ghost_position = next_move.0 .1;
         next_ghost_position_contents = next_move.1;
         game_state.ghost_1_cur_dir = Some(next_move.0 .0.clone());
         changed_direction = true;
     }
-    // let mut logfile = File::create("/Users/jreed/pacman_rust/log.txt").unwrap();
     if next_ghost_position_contents == '•' {
         set_grid_cell(&mut game_state.grid, &next_ghost_position, '\u{1E43}');
-        // let _ = logfile.write("moved into food\n".as_bytes());
     } else {
         set_grid_cell(&mut game_state.grid, &next_ghost_position, 'm');
-        // let _ = logfile.write("moved into nothing\n".as_bytes());
     }
 
     if cur_ghost_position_contents == '\u{1E43}' {
         set_grid_cell(&mut game_state.grid, &current_ghost_position, '•');
-        // let _ = logfile.write("moved FROM food\n".as_bytes());
     } else {
         set_grid_cell(&mut game_state.grid, &current_ghost_position, ' ');
-        // let _ = logfile.write("moved FROM nothing\n".as_bytes());
     }
     game_state.ghost_1_pos = next_ghost_position;
     game_state.num_moves_ghost_1_in_dir = if changed_direction {
@@ -175,14 +181,12 @@ fn ghost_move(game_state: &mut GameState) {
         game_state.num_moves_ghost_1_in_dir + 1
     };
 
-    // let _ = logfile.write(
-    //     format!("current ghost pos: {:?}\n current ghost contents: {:?}\n next ghost pos: {:?}\n next ghost contents: {:?}\n", current_ghost_position, cur_ghost_position_contents, next_ghost_position, next_ghost_position_contents).as_bytes(),
-    // );
+    return AppState::Playing;
 }
 
-fn player_move(game_state: &mut GameState) {
+fn player_move(game_state: &mut GameState) -> AppState {
     if game_state.current_direction.is_none() {
-        return;
+        return AppState::Playing;
     }
     let current_player_position = game_state.player_position;
     let next_player_position = next_position(
@@ -195,8 +199,7 @@ fn player_move(game_state: &mut GameState) {
         get_grid_cell_contents(&game_state.grid, next_player_position);
 
     if ['\u{1E43}', 'm'].contains(&next_player_position_contents) {
-        game_state.game_over = true;
-        return;
+        return AppState::GameOver;
     }
 
     if next_player_position_contents == '#'
@@ -204,8 +207,7 @@ fn player_move(game_state: &mut GameState) {
         || next_player_position_contents == '_'
         || next_player_position_contents == '-'
     {
-        // play_sound(SoundType::Oof, sink);
-        return;
+        return AppState::Playing;
     }
 
     if next_player_position_contents == '•' {
@@ -215,6 +217,7 @@ fn player_move(game_state: &mut GameState) {
     set_grid_cell(&mut game_state.grid, &next_player_position, 'K');
     set_grid_cell(&mut game_state.grid, &current_player_position, ' ');
     game_state.player_position = next_player_position;
+    return AppState::Playing;
 }
 
 fn set_grid_cell(grid: &mut Vec<Vec<char>>, coords: &(i32, i32), contents: char) {
@@ -262,44 +265,12 @@ fn next_position(
     }
 }
 
-fn text_input(
-    mut gamestate: ResMut<GameState>,
-    mut commands: Commands,
-    mut evr_kbd: EventReader<KeyboardInput>,
-) {
-    for ev in evr_kbd.read() {
-        // We don't care about key releases, only key presses
-        if ev.state == ButtonState::Released {
-            continue;
-        }
-        match &ev.logical_key {
-            // Handle pressing Enter to finish the input
-            // Handle key presses that produce text characters
-            Key::Character(input) => {
-                // Ignore any input that contains control (special) characters
-                if input.chars().any(|c| c.is_control()) {
-                    continue;
-                }
-                let cmd = read_input(input);
-                match cmd {
-                    Some(cmd) => match cmd {
-                        Command::Move(dir) => {
-                            gamestate.current_direction = Some(dir);
-                        }
-                        Command::Quit => {
-                            break;
-                        }
-                        Command::Reset => (),
-                    },
-                    None => (),
-                }
-            }
-            _ => {}
-        }
-    }
+fn restart_game(mut next_state: ResMut<NextState<AppState>>, mut commands: Commands) {
+    next_state.set(AppState::Playing);
+    commands.insert_resource(start_state());
 }
 
-fn main() {
+fn start_state() -> GameState {
     let grid = vec![
         vec![
             '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_',
@@ -342,7 +313,7 @@ fn main() {
             '#', '|',
         ],
         vec![
-            ' ', ' ', 'K', ' ', 'm', ' ', ' ', '#', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ',
+            ' ', ' ', 'K', ' ', ' ', ' ', ' ', '#', '#', 'm', '#', '#', ' ', ' ', ' ', ' ', ' ',
             ' ', ' ',
         ],
         vec![
@@ -406,23 +377,67 @@ fn main() {
             .collect::<Vec<char>>()
     })
     .collect::<Vec<Vec<char>>>();
+
+    return GameState {
+        grid,
+        current_direction: Some(MoveDirection::Right),
+        player_position: (2, 10),
+        scores: Scores {
+            high_score: 0,
+            current_score: 0,
+        },
+        ghost_1_cur_dir: Some(MoveDirection::Left),
+        ghost_1_pos: (4, 10),
+        num_moves_ghost_1_in_dir: 0,
+    };
+}
+
+fn text_input(
+    mut gamestate: ResMut<GameState>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut evr_kbd: EventReader<KeyboardInput>,
+) {
+    for ev in evr_kbd.read() {
+        // We don't care about key releases, only key presses
+        if ev.state == ButtonState::Released {
+            continue;
+        }
+        match &ev.logical_key {
+            // Handle pressing Enter to finish the input
+            // Handle key presses that produce text characters
+            Key::Character(input) => {
+                // Ignore any input that contains control (special) characters
+                if input.chars().any(|c| c.is_control()) {
+                    continue;
+                }
+                let cmd = read_input(input);
+                match cmd {
+                    Some(cmd) => match cmd {
+                        Command::Move(dir) => {
+                            gamestate.current_direction = Some(dir);
+                        }
+                        Command::Quit => {
+                            break;
+                        }
+                        Command::Reset => {
+                            next_state.set(AppState::Restarting);
+                        }
+                    },
+                    None => (),
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn main() {
     App::new()
-        .insert_resource(GameState {
-            grid,
-            current_direction: Some(MoveDirection::Right),
-            player_position: (2, 10),
-            scores: Scores {
-                high_score: 0,
-                current_score: 0,
-            },
-            ghost_1_cur_dir: Some(MoveDirection::Left),
-            ghost_1_pos: (4, 10),
-            num_moves_ghost_1_in_dir: 0,
-            game_over: false,
-        })
+        .insert_resource(start_state())
         .edit_schedule(FixedUpdate, |schedule| {
             schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         })
+        .insert_state(AppState::Playing)
         .add_plugins(DefaultPlugins)
         .init_resource::<BevyTerminal<RataguiBackend>>()
         //Initialize the ratatui terminal
@@ -433,42 +448,57 @@ fn main() {
             Update,
             (
                 text_input,
-                move_people.run_if(on_timer(Duration::from_millis(500))),
+                move_people
+                    .run_if(in_state(AppState::Playing))
+                    .run_if(on_timer(Duration::from_millis(500))),
                 ui_example_system,
+                restart_game.run_if(in_state(AppState::Restarting)),
             ),
         )
         .run();
 }
 
-fn move_people(mut gamestate: ResMut<GameState>) {
-    player_move(&mut gamestate);
-    ghost_move(&mut gamestate);
+fn move_people(mut gamestate: ResMut<GameState>, mut next_state: ResMut<NextState<AppState>>) {
+    let player_move_state = player_move(&mut gamestate);
+    let ghost_move_state = ghost_move(&mut gamestate);
+
+    if player_move_state == AppState::GameOver || ghost_move_state == AppState::GameOver {
+        next_state.set(AppState::GameOver);
+    }
+    next_state.set(AppState::Playing);
 }
 
 // Render to the terminal and to egui , both are immediate mode
 fn ui_example_system(
-    gamestate: ResMut<GameState>,
+    state: Res<State<AppState>>,
+    mut gamestate: ResMut<GameState>,
     mut contexts: EguiContexts,
     mut termres: ResMut<BevyTerminal<RataguiBackend>>,
 ) {
-    let grid = &gamestate.grid;
+    if *state.get() == AppState::GameOver {
+        gamestate.grid = vec![vec![' ']];
+        gamestate.grid[0] = format!(
+            "Game over! You scored {}! Your high score is {}. Press 'r' to restart.",
+            gamestate.scores.current_score, gamestate.scores.high_score
+        )
+        .chars()
+        .collect::<Vec<char>>();
+    }
     termres
         .terminal
         .draw(|frame| {
-            let areas =
-                Layout::vertical(vec![Constraint::Length(1); grid.len()]).split(frame.area());
+            let areas = Layout::vertical(vec![Constraint::Length(1); gamestate.grid.len()])
+                .split(frame.area());
 
             // use the simpler short-hand syntax
-            grid.iter().enumerate().for_each(|(idx, row)| {
+            gamestate.grid.iter().enumerate().for_each(|(idx, row)| {
                 frame.render_widget(Paragraph::new(String::from_iter(row)).yellow(), areas[idx]);
             });
         })
         .expect("epic fail");
 
     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
-        //  ui.set_opacity(0.5);
-        let huh = termres.terminal.backend_mut();
-        ui.add(huh);
+        ui.add(termres.terminal.backend_mut());
     });
 }
 // Create resource to hold the ratatui terminal
@@ -481,7 +511,10 @@ struct BevyTerminal<RataguiBackend: ratatui::backend::Backend> {
 impl Default for BevyTerminal<RataguiBackend> {
     fn default() -> Self {
         let backend = RataguiBackend::new(100, 50);
-        let terminal = Terminal::new(backend).unwrap();
+        let terminal = match Terminal::new(backend) {
+            Ok(terminal) => terminal,
+            Err(e) => panic!("Failed to create terminal: {}", e),
+        };
         BevyTerminal { terminal }
     }
 }
