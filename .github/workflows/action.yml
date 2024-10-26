@@ -16,8 +16,14 @@ jobs:
         run: |
           sudo apt install -y libasound2-dev libudev-dev
 
+      - name: Disable Jekyll
+        run: |
+          touch release/wwwroot/.nojekyll
+          touch .nojekyll
+
       - name: Build
         run: |
+          .nojekyll
           RUSTFLAGS=--cfg=web_sys_unstable_apis rustup target add wasm32-unknown-unknown
           RUSTFLAGS=--cfg=web_sys_unstable_apis cargo install trunk
           RUSTFLAGS=--cfg=web_sys_unstable_apis trunk build
