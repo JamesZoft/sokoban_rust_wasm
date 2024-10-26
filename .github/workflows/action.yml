@@ -24,7 +24,6 @@ jobs:
 
       - name: Build
         run: |
-          .nojekyll
           RUSTFLAGS=--cfg=web_sys_unstable_apis rustup target add wasm32-unknown-unknown
           RUSTFLAGS=--cfg=web_sys_unstable_apis cargo install trunk
           RUSTFLAGS=--cfg=web_sys_unstable_apis trunk build
