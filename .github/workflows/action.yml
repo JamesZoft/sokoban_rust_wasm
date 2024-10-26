@@ -24,7 +24,8 @@ jobs:
 
       - name: fix paths
         run: |
-          sed -i 's/\/mystuff/mystuff/g' dist/index.html
+          sed -i 's/="\/mystuff/="mystuff/g' dist/index.html
+          sed -i '' "s/'\/mystuff/'.\/mystuff/g" dist/index.html
       - name: Save build artifacts
         uses: actions/upload-pages-artifact@v3
         with:
