@@ -18,6 +18,7 @@ jobs:
 
       - name: Disable Jekyll
         run: |
+          mkdir -p release/wwwroot
           touch release/wwwroot/.nojekyll
           touch .nojekyll
 
