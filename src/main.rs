@@ -433,12 +433,12 @@ fn text_input(
 
 fn main() {
     App::new()
+        .add_plugins(DefaultPlugins)
         .insert_resource(start_state())
         .edit_schedule(FixedUpdate, |schedule| {
             schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         })
         .insert_state(AppState::Playing)
-        .add_plugins(DefaultPlugins)
         .init_resource::<BevyTerminal<RataguiBackend>>()
         //Initialize the ratatui terminal
         .add_plugins(EguiPlugin)
@@ -464,6 +464,7 @@ fn move_people(mut gamestate: ResMut<GameState>, mut next_state: ResMut<NextStat
 
     if player_move_state == AppState::GameOver || ghost_move_state == AppState::GameOver {
         next_state.set(AppState::GameOver);
+        return;
     }
     next_state.set(AppState::Playing);
 }
