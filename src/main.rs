@@ -387,7 +387,7 @@ fn start_state() -> GameState {
             current_score: 0,
         },
         ghost_1_cur_dir: Some(MoveDirection::Left),
-        ghost_1_pos: (4, 10),
+        ghost_1_pos: (9, 10),
         num_moves_ghost_1_in_dir: 0,
     };
 }
